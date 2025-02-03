@@ -5,12 +5,14 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.*;
 import java.util.ArrayList;
 
 public class CalculatorApp2 {
 
-    private static final ArrayList<String> history = new ArrayList<>();
+    private static final ArrayList<String> history = loadHistory();
     private static JFrame mainFrame;
+    private static final String HISTORY_FILE = "calculator_history.dat";
 
     public static void main(String[] args) {
         mainFrame = new JFrame("Calculator Menu");
@@ -32,7 +34,7 @@ public class CalculatorApp2 {
         JButton exitButton = new JButton("Exit");
         exitButton.setBackground(new Color(204, 153, 255));
         exitButton.setForeground(Color.BLACK);
-        exitButton.addActionListener(e -> System.exit(0));
+        exitButton.addActionListener(e -> exitApp());
 
         mainFrame.add(computeButton);
         mainFrame.add(historyButton);
@@ -83,12 +85,14 @@ public class CalculatorApp2 {
                 String command = e.getActionCommand();
                 if (command.equals("=")) {
                     try {
-                        double result = evaluateExpression(display.getText());
+                        String expression = display.getText();
+                        double result = evaluateExpression(expression);
                         String resultText = (result == (long) result) ? String.valueOf((long) result) : String.valueOf(result);
-                        history.add(display.getText() + " = " + resultText);
+                        history.add(expression + " = " + resultText);
                         display.setText(resultText);
-                    } catch (ScriptException ex) {
+                    } catch (Exception ex) {
                         display.setText("Error");
+                        JOptionPane.showMessageDialog(null, "Invalid expression: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                     }
                 } else if (command.equals("History")) {
                     showHistory();
@@ -111,9 +115,37 @@ public class CalculatorApp2 {
         JOptionPane.showMessageDialog(null, historyString.toString(), "Calculation History", JOptionPane.INFORMATION_MESSAGE);
     }
 
-    private static double evaluateExpression(String expression) throws ScriptException {
-        ScriptEngineManager manager = new ScriptEngineManager();
-        ScriptEngine engine = manager.getEngineByName("JavaScript");
-        return Double.parseDouble(engine.eval(expression).toString());
+    private static double evaluateExpression(String expression) {
+        try {
+            ScriptEngineManager manager = new ScriptEngineManager();
+            ScriptEngine engine = manager.getEngineByName("JavaScript");
+            return Double.parseDouble(engine.eval(expression).toString());
+        } catch (ScriptException | NullPointerException e) {
+            return 0; // Or handle the error as appropriate
+        }
+    }
+
+    private static void saveHistory() {
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(HISTORY_FILE))) {
+            oos.writeObject(history);
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(null, "Error saving history: " + e.getMessage() + "\n" + e.getStackTrace(), "Error", JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace(); // Print stack trace to the console for debugging
+        }
+    }
+
+    private static ArrayList<String> loadHistory() {
+        ArrayList<String> loadedHistory = new ArrayList<>();
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(HISTORY_FILE))) {
+            loadedHistory = (ArrayList<String>) ois.readObject();
+        } catch (IOException | ClassNotFoundException e) {
+            //e.printStackTrace(); //Uncomment for debugging
+        }
+        return loadedHistory;
+    }
+
+    private static void exitApp() {
+        saveHistory();
+        System.exit(0);
     }
 }
