@@ -1,151 +1,176 @@
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
+package myPackage;
+
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import java.awt.event.*;
 import java.io.*;
-import java.util.ArrayList;
 
-public class CalculatorApp2 {
+public class Calculator extends JFrame implements ActionListener {
 
-    private static final ArrayList<String> history = loadHistory();
-    private static JFrame mainFrame;
-    private static final String HISTORY_FILE = "calculator_history.dat";
+    private JTextField display;
+    private double num1, num2, result;
+    private String operator;
 
-    public static void main(String[] args) {
-        mainFrame = new JFrame("Calculator Menu");
-        mainFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        mainFrame.setSize(300, 150);
-        mainFrame.setLayout(new FlowLayout());
-        mainFrame.getContentPane().setBackground(Color.BLACK);
+    public Calculator() {
+        // Set frame properties
+        setTitle("Calculator");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(350, 350);
+        setLayout(new BorderLayout());
+        getContentPane().setBackground(Color.BLACK);
 
-        JButton computeButton = new JButton("Compute");
-        computeButton.setBackground(new Color(204, 153, 255));
-        computeButton.setForeground(Color.BLACK);
-        computeButton.addActionListener(e -> openCalculator());
-
-        JButton historyButton = new JButton("View History");
-        historyButton.setBackground(new Color(204, 153, 255));
-        historyButton.setForeground(Color.BLACK);
-        historyButton.addActionListener(e -> showHistory());
-
-        JButton exitButton = new JButton("Exit");
-        exitButton.setBackground(new Color(204, 153, 255));
-        exitButton.setForeground(Color.BLACK);
-        exitButton.addActionListener(e -> exitApp());
-
-        mainFrame.add(computeButton);
-        mainFrame.add(historyButton);
-        mainFrame.add(exitButton);
-        mainFrame.setVisible(true);
-    }
-
-    private static void openCalculator() {
-        JFrame frame = new JFrame("Calculator");
-        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        frame.setSize(300, 400);
-        frame.setLayout(new BorderLayout());
-        frame.getContentPane().setBackground(Color.BLACK);
-
-        JTextField display = new JTextField();
-        display.setFont(new Font("Arial", Font.BOLD, 24));
-        display.setHorizontalAlignment(JTextField.RIGHT);
+        // Display text field
+        display = new JTextField();
         display.setEditable(false);
         display.setBackground(Color.BLACK);
         display.setForeground(Color.WHITE);
-        frame.add(display, BorderLayout.NORTH);
+        display.setFont(new Font("Arial", Font.PLAIN, 24));
+        add(display, BorderLayout.NORTH);
 
+        // Button panel layout
         JPanel buttonPanel = new JPanel();
         buttonPanel.setLayout(new GridLayout(5, 4, 5, 5));
         buttonPanel.setBackground(Color.BLACK);
 
-        String[] buttonTexts = {
-                "7", "8", "9", "/",
-                "4", "5", "6", "*",
-                "1", "2", "3", "-",
-                "0", ".", "=", "+",
-                "History", "Clear"
+        // Button labels
+        String[] buttons = {
+            "7", "8", "9", "/",
+            "4", "5", "6", "*",
+            "1", "2", "3", "-",
+            "0", ".", "=", "+",
+            "Backspace", "C"
         };
 
-        for (String text : buttonTexts) {
-            JButton button = new JButton(text);
-            button.setFont(new Font("Arial", Font.BOLD, 20));
-            button.setForeground(Color.WHITE);
+        // Add buttons to the panel
+        for (String button : buttons) {
+            JButton b = new JButton(button);
+            b.setFont(new Font("Arial", Font.PLAIN, 20));
+            b.setBackground(new Color(153, 153, 255)); // Set button color
+            b.setForeground(Color.BLACK);
+            b.addActionListener(this);
+            buttonPanel.add(b);
+        }
 
-            if (text.matches("[0-9\\.]") || text.equals("Clear") || text.equals("History")) {
-                button.setBackground(Color.decode(text.equals("Clear") ? "#FBCC58" : (text.equals("History") ? "#507041" : "#f89DAE")));
-            } else {
-                button.setBackground(Color.decode(text.equals("=") ? "#FBCC58" : "#507041"));
+        add(buttonPanel, BorderLayout.CENTER);
+
+        // Menu Bar setup
+        JMenuBar menuBar = new JMenuBar();
+        JMenu menu = new JMenu("Menu");
+
+        JMenuItem computeMenuItem = new JMenuItem("Compute");
+        computeMenuItem.addActionListener(e -> display.setText(""));
+
+        JMenuItem historyMenuItem = new JMenuItem("View History");
+        historyMenuItem.addActionListener(e -> displayHistory());
+
+        JMenuItem exitMenuItem = new JMenuItem("Exit");
+        exitMenuItem.addActionListener(e -> System.exit(0));
+
+        menu.add(computeMenuItem);
+        menu.add(historyMenuItem);
+        menu.addSeparator();
+        menu.add(exitMenuItem);
+        menuBar.add(menu);
+
+        setJMenuBar(menuBar);
+
+        setVisible(true);
+    }
+
+    public void actionPerformed(ActionEvent e) {
+        String command = e.getActionCommand();
+
+        // Handle numeric or decimal input
+        if (Character.isDigit(command.charAt(0)) || command.equals(".")) {
+            display.setText(display.getText() + command);
+        } 
+        // Handle calculation when "=" is pressed
+        else if (command.equals("=")) {
+            try {
+                num2 = Double.parseDouble(display.getText());
+                calculate();
+                display.setText(String.valueOf(result));
+                appendCalculationToFile(num1, operator, num2, result);
+            } catch (NumberFormatException ex) {
+                display.setText("Error");
             }
+        } 
+        // Handle backspace
+        else if (command.equals("Backspace")) {
+            String text = display.getText();
+            if (text.length() > 0) {
+                display.setText(text.substring(0, text.length() - 1)); 
+            }
+        } 
+        // Handle clear button
+        else if (command.equals("C")) {
+            display.setText(""); 
+        } 
+        // Handle operator input
+        else {
+            try {
+                operator = command;
+                num1 = Double.parseDouble(display.getText());
+                display.setText("");
+            } catch (NumberFormatException ex) {
+                display.setText("Error");
+            }
+        }
+    }
 
-            buttonPanel.add(button);
-            button.addActionListener(e -> {
-                String command = e.getActionCommand();
-                if (command.equals("=")) {
-                    try {
-                        String expression = display.getText();
-                        double result = evaluateExpression(expression);
-                        String resultText = (result == (long) result) ? String.valueOf((long) result) : String.valueOf(result);
-                        history.add(expression + " = " + resultText);
-                        display.setText(resultText);
-                    } catch (Exception ex) {
-                        display.setText("Error");
-                        JOptionPane.showMessageDialog(null, "Invalid expression: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-                    }
-                } else if (command.equals("History")) {
-                    showHistory();
-                } else if (command.equals("Clear")) {
-                    display.setText("");
+    // Perform the calculation based on operator
+    private void calculate() {
+        switch (operator) {
+            case "+":
+                result = num1 + num2;
+                break;
+            case "-":
+                result = num1 - num2;
+                break;
+            case "*":
+                result = num1 * num2;
+                break;
+            case "/":
+                if (num2 != 0) {
+                    result = num1 / num2;
                 } else {
-                    display.setText(display.getText() + command);
+                    display.setText("Error");
+                    return;
                 }
-            });
-        }
-        frame.add(buttonPanel, BorderLayout.CENTER);
-        frame.setVisible(true);
-    }
-
-    private static void showHistory() {
-        StringBuilder historyString = new StringBuilder();
-        for (String entry : history) {
-            historyString.append(entry).append("\n");
-        }
-        JOptionPane.showMessageDialog(null, historyString.toString(), "Calculation History", JOptionPane.INFORMATION_MESSAGE);
-    }
-
-    private static double evaluateExpression(String expression) {
-        try {
-            ScriptEngineManager manager = new ScriptEngineManager();
-            ScriptEngine engine = manager.getEngineByName("JavaScript");
-            return Double.parseDouble(engine.eval(expression).toString());
-        } catch (ScriptException | NullPointerException e) {
-            return 0; // Or handle the error as appropriate
+                break;
         }
     }
 
-    private static void saveHistory() {
-        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(HISTORY_FILE))) {
-            oos.writeObject(history);
+    // Append calculation history to a text file
+    private void appendCalculationToFile(double num1, String operator, double num2, double result) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter("calculator_history.txt", true))) {
+            writer.write(num1 + " " + operator + " " + num2 + " = " + result + "\n");
         } catch (IOException e) {
-            JOptionPane.showMessageDialog(null, "Error saving history: " + e.getMessage() + "\n" + e.getStackTrace(), "Error", JOptionPane.ERROR_MESSAGE);
-            e.printStackTrace(); // Print stack trace to the console for debugging
+            JOptionPane.showMessageDialog(this, "Error writing to file: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    private static ArrayList<String> loadHistory() {
-        ArrayList<String> loadedHistory = new ArrayList<>();
-        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(HISTORY_FILE))) {
-            loadedHistory = (ArrayList<String>) ois.readObject();
-        } catch (IOException | ClassNotFoundException e) {
-            //e.printStackTrace(); //Uncomment for debugging
+    // Display calculation history
+    private void displayHistory() {
+        StringBuilder history = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new FileReader("calculator_history.txt"))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                history.append(line).append("\n");
+            }
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(this, "Error reading file: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            return; 
         }
-        return loadedHistory;
+
+        JTextArea historyArea = new JTextArea(history.toString());
+        historyArea.setEditable(false);
+        JScrollPane scrollPane = new JScrollPane(historyArea); 
+        scrollPane.setPreferredSize(new Dimension(300, 400)); 
+        JOptionPane.showMessageDialog(this, scrollPane, "Calculation History", JOptionPane.INFORMATION_MESSAGE);
     }
 
-    private static void exitApp() {
-        saveHistory();
-        System.exit(0);
+    public static void main(String[] args) {
+        new Calculator();
     }
 }
