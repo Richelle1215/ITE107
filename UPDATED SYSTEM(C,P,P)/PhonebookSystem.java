@@ -3,17 +3,18 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.*;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Vector;
+import javax.swing.RowFilter;
 
 public class PhonebookSystem {
     private DefaultTableModel tableModel;
     private JTable contactTable;
     private JTextField firstNameField, lastNameField, locationField, phoneField, searchField;
     private JComboBox<String> groupComboBox;
-    private HashMap<String, ArrayList<Vector<Object>>> groups = new HashMap<>();
+    private HashMap<String, Boolean> groups = new HashMap<>(); // Simplified groups structure
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new PhonebookSystem().createAndShowGUI());
@@ -112,12 +113,6 @@ public class PhonebookSystem {
         panel.add(component, gbc);
     }
 
-    private JButton createButton(String text, ActionEvent e) {
-        JButton button = new JButton(text);
-        button.setBackground(Color.PINK);
-        return button;
-    }
-
     private JButton createButton(String text, ActionListener listener) {
         JButton button = new JButton(text);
         button.setBackground(Color.PINK);
@@ -146,7 +141,7 @@ public class PhonebookSystem {
         String groupName = JOptionPane.showInputDialog("Enter Group Name:");
         if (groupName != null && !groupName.isEmpty()) {
             groupComboBox.addItem(groupName);
-            groups.put(groupName, new ArrayList<>());
+            groups.put(groupName, true);
             JOptionPane.showMessageDialog(null, "Group added successfully.");
         }
     }
@@ -217,26 +212,31 @@ public class PhonebookSystem {
     }
 
     private void saveContactsToFile() {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter("contacts.txt"))) {
-            for (int i = 0; i < tableModel.getRowCount(); i++) {
-                Vector<?> row = tableModel.getDataVector().elementAt(i);
-                writer.write(String.join(",", row.stream().map(Object::toString).toArray(String[]::new)));
-                writer.newLine();
-            }
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream("phonebook_data.dat"))) {
+            oos.writeObject(tableModel.getDataVector());
+            oos.writeObject(groups);
         } catch (IOException e) {
             JOptionPane.showMessageDialog(null, "Error saving contacts: " + e.getMessage());
         }
     }
 
+    @SuppressWarnings("unchecked")
     private void loadContactsFromFile() {
-        try (BufferedReader reader = new BufferedReader(new FileReader("contacts.txt"))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                tableModel.addRow(line.split(","));
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream("phonebook_data.dat"))) {
+            Vector<Vector<Object>> contactData = (Vector<Vector<Object>>) ois.readObject();
+            groups = (HashMap<String, Boolean>) ois.readObject();
+
+            for (Vector<Object> row : contactData) {
+                tableModel.addRow(row);
             }
+
+            for (String groupName : groups.keySet()) {
+                groupComboBox.addItem(groupName);
+            }
+
         } catch (FileNotFoundException e) {
-            //File not found, do nothing. Could also create an empty file here.
-        } catch (IOException e) {
+            //File not found, do nothing
+        } catch (IOException | ClassNotFoundException e) {
             JOptionPane.showMessageDialog(null, "Error loading contacts: " + e.getMessage());
         }
     }
